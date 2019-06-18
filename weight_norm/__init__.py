@@ -9,27 +9,19 @@ import torch.nn as nn
 
 
 def _weight_norm(v, g, dim: int):
-    out = []
     norm = torch.norm(v, 2)
-    for _g in range(g.shape[0]):
-        out.append(_g / norm * v[_g, :])
-    out = torch.stack(out, dim=0)
-    return out
+    return v * (g * norm)
 
 def norm_except_dim(v, pow, dim):
-    if dim == -1:
-        return v.norm(pow)
-    elif dim == 0:
-        output_size = [v.dim(), 1]
-        output_size[0] = v.size(0)
-        return v.contiguous().view(v.size(0), -1).norm(pow, 1).view(output_size)
-    elif (dim == v.dim() - 1):
-        output_size = [v.dim(), 1]
-        output_size[v.dim() - 1] = v.size(v.dim() - 1)
-        return v.contiguous().view(-1, v.size(v.dim() - 1)).norm(pow, 0).view(output_size)
-    else:
-        return norm_except_dim(v.transpose(0, dim), pow, 0).transpose(0, dim)
-
+    if dim is None:
+        return v.norm()
+    if dim != 0:
+        v = v.transpose(0, dim)
+    output_size = (v.size(0),) + (1,) * (v.dim() - 1)
+    v = v.contiguous().view(v.size(0), -1).norm(dim=1).view(*output_size)
+    if dim != 0:
+        v = v.transpose(0, dim)
+    return v
 
 class WeightNorm:
     def __init__(self, name, dim):
